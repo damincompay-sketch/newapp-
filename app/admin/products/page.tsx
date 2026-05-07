@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
+import Link from 'next/link'
 import Image from 'next/image'
-import { Plus, Pencil, Trash2, Search, Package, Upload, X, ImageIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Package, Upload, X, ImageIcon, ArrowRight, Home, Eye, Save, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,184 +38,45 @@ import {
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { formatPrice, type Product } from '@/lib/store'
-import { products as initialProducts, categories } from '@/lib/data'
+import { formatPrice, useStore, type Product } from '@/lib/store'
+import { products as initialProducts } from '@/lib/data'
 import { toast } from 'sonner'
 
-export default function AdminProductsPage() {
-  const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const [formData, setFormData] = useState({
-    nameAr: '',
-    descriptionAr: '',
-    wholesalePrice: '',
-    retailPrice: '',
-    category: '',
-    stock: '',
-    unitAr: '',
-  })
-  
-  // Image management
-  const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload')
-  const [imageUrl, setImageUrl] = useState('')
-  const [uploadedImages, setUploadedImages] = useState<string[]>([])
-
-  const filteredProducts = products.filter(
-    (product) =>
-      product.nameAr.includes(searchQuery) ||
-      product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const resetForm = () => {
-    setFormData({
-      nameAr: '',
-      descriptionAr: '',
-      wholesalePrice: '',
-      retailPrice: '',
-      category: '',
-      stock: '',
-      unitAr: '',
-    })
-    setImageUrl('')
-    setUploadedImages([])
-    setImageMode('upload')
+// Separate form component to prevent focus issues
+function ProductFormFields({
+  formData,
+  onFormChange,
+  categories,
+  imageMode,
+  setImageMode,
+  imageUrl,
+  setImageUrl,
+  uploadedImages,
+  handleImageUpload,
+  removeImage,
+  fileInputRef
+}: {
+  formData: {
+    nameAr: string
+    descriptionAr: string
+    wholesalePrice: string
+    retailPrice: string
+    category: string
+    stock: string
+    unitAr: string
   }
-
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) {
-        toast.error(`الملف ${file.name} ليس صورة`)
-        return
-      }
-      
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`الملف ${file.name} كبير جداً (الحد الأقصى 5MB)`)
-        return
-      }
-
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string
-        setUploadedImages((prev) => [...prev, dataUrl])
-      }
-      reader.readAsDataURL(file)
-    })
-
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }, [])
-
-  const removeImage = (index: number) => {
-    setUploadedImages((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const getProductImage = (): string => {
-    if (imageMode === 'url' && imageUrl) {
-      return imageUrl
-    }
-    if (uploadedImages.length > 0) {
-      return uploadedImages[0]
-    }
-    return 'https://via.placeholder.com/400'
-  }
-
-  const handleAdd = () => {
-    if (!formData.nameAr || !formData.wholesalePrice || !formData.category) {
-      toast.error('الرجاء ملء جميع الحقول المطلوبة')
-      return
-    }
-
-    const category = categories.find(c => c.id === formData.category)
-    const newProduct: Product = {
-      id: `product-${Date.now()}`,
-      name: formData.nameAr,
-      nameAr: formData.nameAr,
-      description: formData.descriptionAr,
-      descriptionAr: formData.descriptionAr,
-      wholesalePrice: Number(formData.wholesalePrice),
-      retailPrice: Number(formData.retailPrice) || Number(formData.wholesalePrice),
-      minQuantity: 1,
-      category: formData.category,
-      categoryAr: category?.nameAr || '',
-      image: getProductImage(),
-      stock: Number(formData.stock) || 0,
-      unit: formData.unitAr,
-      unitAr: formData.unitAr,
-    }
-
-    setProducts([...products, newProduct])
-    resetForm()
-    setIsAddDialogOpen(false)
-    toast.success('تم إضافة المنتج بنجاح')
-  }
-
-  const handleEdit = () => {
-    if (!editingProduct) return
-
-    const category = categories.find(c => c.id === formData.category)
-    const updatedProducts = products.map((p) =>
-      p.id === editingProduct.id
-        ? {
-            ...p,
-            nameAr: formData.nameAr,
-            name: formData.nameAr,
-            descriptionAr: formData.descriptionAr,
-            description: formData.descriptionAr,
-            wholesalePrice: Number(formData.wholesalePrice),
-            retailPrice: Number(formData.retailPrice) || Number(formData.wholesalePrice),
-            minQuantity: 1,
-            category: formData.category,
-            categoryAr: category?.nameAr || '',
-            image: getProductImage(),
-            stock: Number(formData.stock),
-            unitAr: formData.unitAr,
-            unit: formData.unitAr,
-          }
-        : p
-    )
-
-    setProducts(updatedProducts)
-    setEditingProduct(null)
-    resetForm()
-    toast.success('تم تحديث المنتج بنجاح')
-  }
-
-  const handleDelete = (productId: string) => {
-    setProducts(products.filter((p) => p.id !== productId))
-    toast.success('تم حذف المنتج بنجاح')
-  }
-
-  const openEditDialog = (product: Product) => {
-    setEditingProduct(product)
-    setFormData({
-      nameAr: product.nameAr,
-      descriptionAr: product.descriptionAr,
-      wholesalePrice: product.wholesalePrice.toString(),
-      retailPrice: product.retailPrice.toString(),
-      category: product.category,
-      stock: product.stock.toString(),
-      unitAr: product.unitAr,
-    })
-    // Check if current image is a data URL or external URL
-    if (product.image.startsWith('data:')) {
-      setUploadedImages([product.image])
-      setImageMode('upload')
-    } else {
-      setImageUrl(product.image)
-      setImageMode('url')
-    }
-  }
-
-  const ProductForm = () => (
+  onFormChange: (field: string, value: string) => void
+  categories: { id: string; nameAr: string }[]
+  imageMode: 'upload' | 'url'
+  setImageMode: (mode: 'upload' | 'url') => void
+  imageUrl: string
+  setImageUrl: (url: string) => void
+  uploadedImages: string[]
+  handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
+  removeImage: (index: number) => void
+  fileInputRef: React.RefObject<HTMLInputElement | null>
+}) {
+  return (
     <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-1">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -222,7 +84,7 @@ export default function AdminProductsPage() {
           <Input
             id="nameAr"
             value={formData.nameAr}
-            onChange={(e) => setFormData({ ...formData, nameAr: e.target.value })}
+            onChange={(e) => onFormChange('nameAr', e.target.value)}
             placeholder="أرز بسمتي ٢٥ كيلو"
           />
         </div>
@@ -230,7 +92,7 @@ export default function AdminProductsPage() {
           <Label htmlFor="category">القسم *</Label>
           <Select
             value={formData.category}
-            onValueChange={(value) => setFormData({ ...formData, category: value })}
+            onValueChange={(value) => onFormChange('category', value)}
           >
             <SelectTrigger>
               <SelectValue placeholder="اختر القسم" />
@@ -251,7 +113,7 @@ export default function AdminProductsPage() {
         <Input
           id="descriptionAr"
           value={formData.descriptionAr}
-          onChange={(e) => setFormData({ ...formData, descriptionAr: e.target.value })}
+          onChange={(e) => onFormChange('descriptionAr', e.target.value)}
           placeholder="وصف المنتج"
         />
       </div>
@@ -263,7 +125,7 @@ export default function AdminProductsPage() {
             id="wholesalePrice"
             type="number"
             value={formData.wholesalePrice}
-            onChange={(e) => setFormData({ ...formData, wholesalePrice: e.target.value })}
+            onChange={(e) => onFormChange('wholesalePrice', e.target.value)}
             placeholder="45000"
           />
         </div>
@@ -273,7 +135,7 @@ export default function AdminProductsPage() {
             id="retailPrice"
             type="number"
             value={formData.retailPrice}
-            onChange={(e) => setFormData({ ...formData, retailPrice: e.target.value })}
+            onChange={(e) => onFormChange('retailPrice', e.target.value)}
             placeholder="52000"
           />
         </div>
@@ -286,7 +148,7 @@ export default function AdminProductsPage() {
             id="stock"
             type="number"
             value={formData.stock}
-            onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+            onChange={(e) => onFormChange('stock', e.target.value)}
             placeholder="500"
           />
         </div>
@@ -295,7 +157,7 @@ export default function AdminProductsPage() {
           <Input
             id="unitAr"
             value={formData.unitAr}
-            onChange={(e) => setFormData({ ...formData, unitAr: e.target.value })}
+            onChange={(e) => onFormChange('unitAr', e.target.value)}
             placeholder="كيس"
           />
         </div>
@@ -407,9 +269,243 @@ export default function AdminProductsPage() {
       </div>
     </div>
   )
+}
+
+export default function AdminProductsPage() {
+  const { categories } = useStore()
+  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [formData, setFormData] = useState({
+    nameAr: '',
+    descriptionAr: '',
+    wholesalePrice: '',
+    retailPrice: '',
+    category: '',
+    stock: '',
+    unitAr: '',
+  })
+  
+  // Image management
+  const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload')
+  const [imageUrl, setImageUrl] = useState('')
+  const [uploadedImages, setUploadedImages] = useState<string[]>([])
+
+  const filteredProducts = useMemo(() => 
+    products.filter(
+      (product) =>
+        product.nameAr.includes(searchQuery) ||
+        product.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [products, searchQuery]
+  )
+
+  const resetForm = useCallback(() => {
+    setFormData({
+      nameAr: '',
+      descriptionAr: '',
+      wholesalePrice: '',
+      retailPrice: '',
+      category: '',
+      stock: '',
+      unitAr: '',
+    })
+    setImageUrl('')
+    setUploadedImages([])
+    setImageMode('upload')
+  }, [])
+
+  const handleFormChange = useCallback((field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }, [])
+
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`الملف ${file.name} ليس صورة`)
+        return
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`الملف ${file.name} كبير جداً (الحد الأقصى 5MB)`)
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string
+        setUploadedImages((prev) => [...prev, dataUrl])
+      }
+      reader.readAsDataURL(file)
+    })
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [])
+
+  const removeImage = useCallback((index: number) => {
+    setUploadedImages((prev) => prev.filter((_, i) => i !== index))
+  }, [])
+
+  const getProductImage = useCallback((): string => {
+    if (imageMode === 'url' && imageUrl) {
+      return imageUrl
+    }
+    if (uploadedImages.length > 0) {
+      return uploadedImages[0]
+    }
+    return 'https://via.placeholder.com/400'
+  }, [imageMode, imageUrl, uploadedImages])
+
+  const handleAdd = useCallback(() => {
+    if (!formData.nameAr || !formData.wholesalePrice || !formData.category) {
+      toast.error('الرجاء ملء جميع الحقول المطلوبة')
+      return
+    }
+
+    const category = categories.find(c => c.id === formData.category)
+    const newProduct: Product = {
+      id: `product-${Date.now()}`,
+      name: formData.nameAr,
+      nameAr: formData.nameAr,
+      description: formData.descriptionAr,
+      descriptionAr: formData.descriptionAr,
+      wholesalePrice: Number(formData.wholesalePrice),
+      retailPrice: Number(formData.retailPrice) || Number(formData.wholesalePrice),
+      minQuantity: 1,
+      category: formData.category,
+      categoryAr: category?.nameAr || '',
+      image: getProductImage(),
+      stock: Number(formData.stock) || 0,
+      unit: formData.unitAr,
+      unitAr: formData.unitAr,
+    }
+
+    setProducts(prev => [...prev, newProduct])
+    resetForm()
+    setIsAddDialogOpen(false)
+    setShowSaveSuccess(true)
+    toast.success('تم إضافة المنتج بنجاح')
+  }, [formData, categories, getProductImage, resetForm])
+
+  const handleEdit = useCallback(() => {
+    if (!editingProduct) return
+
+    const category = categories.find(c => c.id === formData.category)
+    setProducts(prev => prev.map((p) =>
+      p.id === editingProduct.id
+        ? {
+            ...p,
+            nameAr: formData.nameAr,
+            name: formData.nameAr,
+            descriptionAr: formData.descriptionAr,
+            description: formData.descriptionAr,
+            wholesalePrice: Number(formData.wholesalePrice),
+            retailPrice: Number(formData.retailPrice) || Number(formData.wholesalePrice),
+            minQuantity: 1,
+            category: formData.category,
+            categoryAr: category?.nameAr || '',
+            image: getProductImage(),
+            stock: Number(formData.stock),
+            unitAr: formData.unitAr,
+            unit: formData.unitAr,
+          }
+        : p
+    ))
+
+    setEditingProduct(null)
+    resetForm()
+    setShowSaveSuccess(true)
+    toast.success('تم تحديث المنتج بنجاح')
+  }, [editingProduct, formData, categories, getProductImage, resetForm])
+
+  const handleDelete = useCallback((productId: string) => {
+    setProducts(prev => prev.filter((p) => p.id !== productId))
+    toast.success('تم حذف المنتج بنجاح')
+  }, [])
+
+  const openEditDialog = useCallback((product: Product) => {
+    setEditingProduct(product)
+    setFormData({
+      nameAr: product.nameAr,
+      descriptionAr: product.descriptionAr,
+      wholesalePrice: product.wholesalePrice.toString(),
+      retailPrice: product.retailPrice.toString(),
+      category: product.category,
+      stock: product.stock.toString(),
+      unitAr: product.unitAr,
+    })
+    // Check if current image is a data URL or external URL
+    if (product.image.startsWith('data:')) {
+      setUploadedImages([product.image])
+      setImageMode('upload')
+    } else {
+      setImageUrl(product.image)
+      setImageMode('url')
+    }
+  }, [])
+
+  // Success dialog after save
+  if (showSaveSuccess) {
+    return (
+      <div className="space-y-6">
+        <Card className="max-w-md mx-auto mt-20">
+          <CardContent className="pt-6 text-center space-y-6">
+            <div className="w-16 h-16 mx-auto rounded-full bg-green-100 flex items-center justify-center">
+              <Check className="h-8 w-8 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold mb-2">تم الحفظ بنجاح!</h2>
+              <p className="text-muted-foreground">تم حفظ التغييرات على المنتج</p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Button
+                className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                onClick={() => setShowSaveSuccess(false)}
+              >
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة منتج آخر
+              </Button>
+              <Link href="/" className="w-full">
+                <Button variant="outline" className="w-full">
+                  <Home className="h-4 w-4 ml-2" />
+                  الذهاب للصفحة الرئيسية
+                </Button>
+              </Link>
+              <Link href="/products" className="w-full">
+                <Button variant="ghost" className="w-full">
+                  <Eye className="h-4 w-4 ml-2" />
+                  معاينة المنتجات
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
+      {/* Back Button */}
+      <div className="flex items-center gap-4">
+        <Link href="/admin">
+          <Button variant="ghost" size="sm">
+            <ArrowRight className="h-4 w-4 ml-2" />
+            رجوع
+          </Button>
+        </Link>
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">المنتجات</h1>
@@ -434,12 +530,25 @@ export default function AdminProductsPage() {
                 أدخل بيانات المنتج الجديد
               </DialogDescription>
             </DialogHeader>
-            <ProductForm />
+            <ProductFormFields
+              formData={formData}
+              onFormChange={handleFormChange}
+              categories={categories}
+              imageMode={imageMode}
+              setImageMode={setImageMode}
+              imageUrl={imageUrl}
+              setImageUrl={setImageUrl}
+              uploadedImages={uploadedImages}
+              handleImageUpload={handleImageUpload}
+              removeImage={removeImage}
+              fileInputRef={fileInputRef}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 إلغاء
               </Button>
               <Button onClick={handleAdd} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                <Save className="h-4 w-4 ml-2" />
                 إضافة
               </Button>
             </DialogFooter>
@@ -537,7 +646,19 @@ export default function AdminProductsPage() {
                                 تحديث بيانات المنتج
                               </DialogDescription>
                             </DialogHeader>
-                            <ProductForm />
+                            <ProductFormFields
+                              formData={formData}
+                              onFormChange={handleFormChange}
+                              categories={categories}
+                              imageMode={imageMode}
+                              setImageMode={setImageMode}
+                              imageUrl={imageUrl}
+                              setImageUrl={setImageUrl}
+                              uploadedImages={uploadedImages}
+                              handleImageUpload={handleImageUpload}
+                              removeImage={removeImage}
+                              fileInputRef={fileInputRef}
+                            />
                             <DialogFooter>
                               <Button
                                 variant="outline"
@@ -549,6 +670,7 @@ export default function AdminProductsPage() {
                                 إلغاء
                               </Button>
                               <Button onClick={handleEdit} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                                <Save className="h-4 w-4 ml-2" />
                                 حفظ التغييرات
                               </Button>
                             </DialogFooter>
@@ -564,10 +686,9 @@ export default function AdminProductsPage() {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                              <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
                               <AlertDialogDescription>
-                                هل أنت متأكد من حذف المنتج &quot;{product.nameAr}&quot;؟
-                                لا يمكن التراجع عن هذا الإجراء.
+                                سيتم حذف المنتج &quot;{product.nameAr}&quot; نهائياً. هذا الإجراء لا يمكن التراجع عنه.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

@@ -54,6 +54,18 @@ export interface Order {
   createdAt: string
 }
 
+// Deal of day interface
+export interface DealOfDay {
+  productId: string
+  productName: string
+  productImage: string
+  productDescription: string
+  originalPrice: number
+  discount: number
+  endsAt: string
+  isActive: boolean
+}
+
 // Site settings interface
 export interface SiteSettings {
   siteName: string
@@ -61,6 +73,8 @@ export interface SiteSettings {
   logoUrl: string
   whatsappNumber: string
   accentColor: string
+  primaryButtonText: string
+  secondaryButtonText: string
   heroSlides: {
     id: number
     title: string
@@ -68,7 +82,9 @@ export interface SiteSettings {
     description: string
     image: string
     cta: string
+    ctaLink?: string
   }[]
+  dealOfDay: DealOfDay
 }
 
 // Category interface
@@ -130,6 +146,8 @@ const defaultSiteSettings: SiteSettings = {
   logoUrl: '',
   whatsappNumber: '967777777777',
   accentColor: '#ff8c00',
+  primaryButtonText: 'أضف للسلة',
+  secondaryButtonText: 'تسوق الآن',
   heroSlides: [
     {
       id: 1,
@@ -138,6 +156,7 @@ const defaultSiteSettings: SiteSettings = {
       description: 'تسوق من أكبر تشكيلة منتجات بأسعار الجملة',
       image: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=1200&h=600&fit=crop',
       cta: 'تسوق الآن',
+      ctaLink: '/products',
     },
     {
       id: 2,
@@ -146,6 +165,7 @@ const defaultSiteSettings: SiteSettings = {
       description: 'استفد من عروضنا الحصرية على المنتجات المختارة',
       image: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=1200&h=600&fit=crop',
       cta: 'اكتشف العروض',
+      ctaLink: '/products',
     },
     {
       id: 3,
@@ -154,8 +174,19 @@ const defaultSiteSettings: SiteSettings = {
       description: 'نوصل طلباتك إلى باب منزلك في أسرع وقت',
       image: 'https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?w=1200&h=600&fit=crop',
       cta: 'اطلب الآن',
+      ctaLink: '/products',
     },
   ],
+  dealOfDay: {
+    productId: 'deal-1',
+    productName: 'أرز بسمتي فاخر ٢٥ كيلو',
+    productImage: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&h=800&fit=crop',
+    productDescription: 'أرز بسمتي هندي فاخر طويل الحبة، مثالي للمناسبات والطبخ اليومي',
+    originalPrice: 45000,
+    discount: 20,
+    endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    isActive: true,
+  },
 }
 
 // Default categories
