@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ShoppingCart, Menu, X, Search, User, Package, Settings, LogOut } from 'lucide-react'
+import { ShoppingCart, Menu, Search, User, Package, Settings, LogOut, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useStore } from '@/lib/store'
@@ -20,6 +20,7 @@ const navLinks = [
   { href: '/', label: 'الرئيسية' },
   { href: '/products', label: 'المنتجات' },
   { href: '/categories', label: 'الأقسام' },
+  { href: '/favorites', label: 'المفضلة', icon: Star },
   { href: '/orders', label: 'طلباتي' },
 ]
 

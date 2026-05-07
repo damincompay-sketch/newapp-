@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Package, LayoutDashboard, ShoppingBag, Settings, LogOut, Menu, ClipboardList } from 'lucide-react'
+import { Package, LayoutDashboard, ShoppingBag, Settings, LogOut, Menu, ClipboardList, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { useStore } from '@/lib/store'
@@ -12,6 +12,7 @@ const sidebarLinks = [
   { href: '/admin', label: 'لوحة التحكم', icon: LayoutDashboard },
   { href: '/admin/orders', label: 'الطلبات الواردة', icon: ClipboardList },
   { href: '/admin/products', label: 'المنتجات', icon: ShoppingBag },
+  { href: '/admin/categories', label: 'الأقسام', icon: FolderOpen },
   { href: '/admin/settings', label: 'الإعدادات', icon: Settings },
 ]
 

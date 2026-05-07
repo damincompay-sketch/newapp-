@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { ShoppingCart } from 'lucide-react'
+import { ShoppingCart, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatPrice, useStore, type Product } from '@/lib/store'
@@ -13,13 +13,27 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { addToCart } = useStore()
+  const { addToCart, favorites, addToFavorites, removeFromFavorites } = useStore()
+  
+  const isFavorite = favorites.includes(product.id)
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     addToCart(product, 1)
     toast.success(`تمت إضافة ${product.nameAr} إلى السلة`)
+  }
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isFavorite) {
+      removeFromFavorites(product.id)
+      toast.success('تمت الإزالة من المفضلة')
+    } else {
+      addToFavorites(product.id)
+      toast.success('تمت الإضافة إلى المفضلة')
+    }
   }
 
   const savings = product.retailPrice - product.wholesalePrice
@@ -40,8 +54,19 @@ export function ProductCard({ product }: ProductCardProps) {
               وفر {savingsPercent}%
             </div>
           )}
+          {/* Favorite Button */}
+          <button
+            onClick={handleToggleFavorite}
+            className="absolute top-2 left-2 p-2 rounded-full bg-white/80 hover:bg-white transition-colors shadow-sm"
+          >
+            <Star 
+              className={`h-4 w-4 transition-colors ${
+                isFavorite ? 'text-accent fill-accent' : 'text-muted-foreground'
+              }`} 
+            />
+          </button>
           {/* Overlay on hover */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
         </div>
         <CardContent className="p-4">
           <div className="text-xs text-accent font-medium mb-1">
