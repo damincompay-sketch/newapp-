@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Plus, Pencil, Trash2, Search, Package } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Package, Upload, X, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatPrice, type Product } from '@/lib/store'
 import { products as initialProducts, categories } from '@/lib/data'
 import { toast } from 'sonner'
@@ -45,18 +46,22 @@ export default function AdminProductsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     nameAr: '',
     descriptionAr: '',
     wholesalePrice: '',
     retailPrice: '',
-    minQuantity: '',
     category: '',
-    image: '',
     stock: '',
     unitAr: '',
   })
+  
+  // Image management
+  const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload')
+  const [imageUrl, setImageUrl] = useState('')
+  const [uploadedImages, setUploadedImages] = useState<string[]>([])
 
   const filteredProducts = products.filter(
     (product) =>
@@ -70,12 +75,56 @@ export default function AdminProductsPage() {
       descriptionAr: '',
       wholesalePrice: '',
       retailPrice: '',
-      minQuantity: '',
       category: '',
-      image: '',
       stock: '',
       unitAr: '',
     })
+    setImageUrl('')
+    setUploadedImages([])
+    setImageMode('upload')
+  }
+
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`الملف ${file.name} ليس صورة`)
+        return
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`الملف ${file.name} كبير جداً (الحد الأقصى 5MB)`)
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string
+        setUploadedImages((prev) => [...prev, dataUrl])
+      }
+      reader.readAsDataURL(file)
+    })
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [])
+
+  const removeImage = (index: number) => {
+    setUploadedImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const getProductImage = (): string => {
+    if (imageMode === 'url' && imageUrl) {
+      return imageUrl
+    }
+    if (uploadedImages.length > 0) {
+      return uploadedImages[0]
+    }
+    return 'https://via.placeholder.com/400'
   }
 
   const handleAdd = () => {
@@ -92,11 +141,11 @@ export default function AdminProductsPage() {
       description: formData.descriptionAr,
       descriptionAr: formData.descriptionAr,
       wholesalePrice: Number(formData.wholesalePrice),
-      retailPrice: Number(formData.retailPrice),
-      minQuantity: Number(formData.minQuantity) || 1,
+      retailPrice: Number(formData.retailPrice) || Number(formData.wholesalePrice),
+      minQuantity: 1,
       category: formData.category,
       categoryAr: category?.nameAr || '',
-      image: formData.image || 'https://via.placeholder.com/400',
+      image: getProductImage(),
       stock: Number(formData.stock) || 0,
       unit: formData.unitAr,
       unitAr: formData.unitAr,
@@ -121,11 +170,11 @@ export default function AdminProductsPage() {
             descriptionAr: formData.descriptionAr,
             description: formData.descriptionAr,
             wholesalePrice: Number(formData.wholesalePrice),
-            retailPrice: Number(formData.retailPrice),
-            minQuantity: Number(formData.minQuantity),
+            retailPrice: Number(formData.retailPrice) || Number(formData.wholesalePrice),
+            minQuantity: 1,
             category: formData.category,
             categoryAr: category?.nameAr || '',
-            image: formData.image,
+            image: getProductImage(),
             stock: Number(formData.stock),
             unitAr: formData.unitAr,
             unit: formData.unitAr,
@@ -151,16 +200,22 @@ export default function AdminProductsPage() {
       descriptionAr: product.descriptionAr,
       wholesalePrice: product.wholesalePrice.toString(),
       retailPrice: product.retailPrice.toString(),
-      minQuantity: product.minQuantity.toString(),
       category: product.category,
-      image: product.image,
       stock: product.stock.toString(),
       unitAr: product.unitAr,
     })
+    // Check if current image is a data URL or external URL
+    if (product.image.startsWith('data:')) {
+      setUploadedImages([product.image])
+      setImageMode('upload')
+    } else {
+      setImageUrl(product.image)
+      setImageMode('url')
+    }
   }
 
   const ProductForm = () => (
-    <div className="grid gap-4 py-4">
+    <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-1">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="nameAr">اسم المنتج *</Label>
@@ -224,17 +279,7 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="minQuantity">الحد الأدنى</Label>
-          <Input
-            id="minQuantity"
-            type="number"
-            value={formData.minQuantity}
-            onChange={(e) => setFormData({ ...formData, minQuantity: e.target.value })}
-            placeholder="10"
-          />
-        </div>
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="stock">المخزون</Label>
           <Input
@@ -256,15 +301,109 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="image">رابط الصورة</Label>
-        <Input
-          id="image"
-          value={formData.image}
-          onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-          placeholder="https://..."
-          dir="ltr"
-        />
+      {/* Image Upload Section */}
+      <div className="space-y-4">
+        <Label>صور المنتج</Label>
+        
+        <Tabs value={imageMode} onValueChange={(v) => setImageMode(v as 'upload' | 'url')}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="upload" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              رفع صورة
+            </TabsTrigger>
+            <TabsTrigger value="url" className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              رابط صورة
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="upload" className="space-y-4">
+            {/* Upload Area */}
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-accent transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-1">
+                اضغط لرفع صور أو اسحب الملفات هنا
+              </p>
+              <p className="text-xs text-muted-foreground">
+                PNG, JPG حتى 5MB لكل صورة
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+            </div>
+
+            {/* Uploaded Images Preview */}
+            {uploadedImages.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">
+                  الصور المرفوعة ({uploadedImages.length})
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {uploadedImages.map((img, index) => (
+                    <div key={index} className="relative group">
+                      <div className="w-20 h-20 rounded-lg overflow-hidden border border-border">
+                        <Image
+                          src={img}
+                          alt={`صورة ${index + 1}`}
+                          width={80}
+                          height={80}
+                          className="object-cover w-full h-full"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      {index === 0 && (
+                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] bg-accent text-accent-foreground px-1 rounded">
+                          رئيسية
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="url" className="space-y-4">
+            <div className="space-y-2">
+              <Input
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                dir="ltr"
+              />
+              <p className="text-xs text-muted-foreground">
+                أدخل رابط URL مباشر للصورة
+              </p>
+            </div>
+            
+            {/* URL Image Preview */}
+            {imageUrl && (
+              <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-border">
+                <Image
+                  src={imageUrl}
+                  alt="معاينة الصورة"
+                  fill
+                  className="object-cover"
+                  onError={() => toast.error('فشل تحميل الصورة')}
+                />
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
@@ -278,14 +417,17 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Add Product Dialog */}
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+          setIsAddDialogOpen(open)
+          if (!open) resetForm()
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus className="h-4 w-4 ml-2" />
               إضافة منتج
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>إضافة منتج جديد</DialogTitle>
               <DialogDescription>
@@ -388,7 +530,7 @@ export default function AdminProductsPage() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-md">
+                          <DialogContent className="max-w-lg">
                             <DialogHeader>
                               <DialogTitle>تعديل المنتج</DialogTitle>
                               <DialogDescription>

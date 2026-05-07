@@ -3,79 +3,56 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Package, Mail, Phone, ArrowLeft, Loader2, Shield } from 'lucide-react'
+import { Package, Mail, ArrowLeft, Loader2, Shield, User, Phone, MapPin, SkipForward } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { useStore } from '@/lib/store'
 import { toast } from 'sonner'
+
+type Step = 'email' | 'otp' | 'profile'
 
 export default function LoginPage() {
   const router = useRouter()
   const { setUser } = useStore()
   
-  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('phone')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  const [step, setStep] = useState<Step>('email')
   const [isLoading, setIsLoading] = useState(false)
   
-  // OTP state
-  const [showOTP, setShowOTP] = useState(false)
-  const [otp, setOtp] = useState('')
-  const [isSendingOTP, setIsSendingOTP] = useState(false)
-  const [isVerifyingOTP, setIsVerifyingOTP] = useState(false)
+  // Profile data
+  const [profileData, setProfileData] = useState({
+    name: '',
+    phone: '',
+    address: ''
+  })
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!email || !password) {
-      toast.error('الرجاء إدخال البريد الإلكتروني وكلمة المرور')
+    if (!email) {
+      toast.error('الرجاء إدخال البريد الإلكتروني')
+      return
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      toast.error('الرجاء إدخال بريد إلكتروني صحيح')
       return
     }
 
     setIsLoading(true)
     
-    // Mock login
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const isAdmin = email === 'admin@jomlah.com' && password === 'admin123'
-    
-    setUser({
-      id: 'user-1',
-      name: isAdmin ? 'مدير النظام' : 'محمد أحمد',
-      email,
-      phone: '',
-      isAdmin,
-    })
-    
-    toast.success('تم تسجيل الدخول بنجاح')
-    
-    if (isAdmin) {
-      router.push('/admin')
-    } else {
-      router.push('/')
-    }
-    setIsLoading(false)
-  }
-
-  const handleSendOTP = async () => {
-    if (!phone || phone.length < 9) {
-      toast.error('الرجاء إدخال رقم هاتف يمني صحيح')
-      return
-    }
-
-    setIsSendingOTP(true)
-    
-    // Mock OTP sending
+    // Mock sending OTP email
     await new Promise(resolve => setTimeout(resolve, 1500))
     
-    setShowOTP(true)
-    toast.success('تم إرسال رمز التحقق إلى هاتفك')
-    setIsSendingOTP(false)
+    setStep('otp')
+    toast.success('تم إرسال رمز التحقق إلى بريدك الإلكتروني')
+    setIsLoading(false)
   }
 
   const handleVerifyOTP = async () => {
@@ -84,23 +61,68 @@ export default function LoginPage() {
       return
     }
 
-    setIsVerifyingOTP(true)
+    setIsLoading(true)
     
     // Mock OTP verification (accept any 6 digits)
     await new Promise(resolve => setTimeout(resolve, 1000))
     
-    // Mock successful verification
+    // Check if admin email
+    if (email === 'admin@jomlah.com') {
+      setUser({
+        id: 'admin-1',
+        name: 'مدير النظام',
+        email,
+        phone: '',
+        isAdmin: true,
+      })
+      toast.success('تم تسجيل الدخول كمدير')
+      router.push('/admin')
+    } else {
+      // For regular users, show profile completion step
+      setStep('profile')
+      toast.success('تم التحقق بنجاح')
+    }
+    
+    setIsLoading(false)
+  }
+
+  const handleCompleteProfile = async () => {
+    if (!profileData.name) {
+      toast.error('الرجاء إدخال الاسم')
+      return
+    }
+
+    setIsLoading(true)
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
     setUser({
-      id: 'user-' + phone,
-      name: 'مستخدم جديد',
-      email: '',
-      phone: '+967' + phone,
+      id: 'user-' + Date.now(),
+      name: profileData.name,
+      email,
+      phone: profileData.phone,
       isAdmin: false,
     })
     
     toast.success('تم تسجيل الدخول بنجاح')
     router.push('/')
-    setIsVerifyingOTP(false)
+    setIsLoading(false)
+  }
+
+  const handleSkipProfile = async () => {
+    setIsLoading(true)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
+    setUser({
+      id: 'user-' + Date.now(),
+      name: 'عميل',
+      email,
+      phone: '',
+      isAdmin: false,
+    })
+    
+    toast.success('مرحباً بك في العم ضامن للجملة والعروض')
+    router.push('/')
+    setIsLoading(false)
   }
 
   return (
@@ -129,127 +151,31 @@ export default function LoginPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/10 flex items-center justify-center">
-              <Shield className="h-8 w-8 text-accent" />
+              {step === 'profile' ? (
+                <User className="h-8 w-8 text-accent" />
+              ) : (
+                <Shield className="h-8 w-8 text-accent" />
+              )}
             </div>
-            <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
+            <CardTitle className="text-2xl">
+              {step === 'email' && 'تسجيل الدخول'}
+              {step === 'otp' && 'التحقق من البريد'}
+              {step === 'profile' && 'أكمل بياناتك'}
+            </CardTitle>
             <CardDescription>
-              سجل دخولك للاستمتاع بتجربة تسوق مميزة
+              {step === 'email' && 'أدخل بريدك الإلكتروني للتسجيل أو تسجيل الدخول'}
+              {step === 'otp' && 'أدخل رمز التحقق المرسل إلى بريدك'}
+              {step === 'profile' && 'أدخل بياناتك أو تخطى للتسوق'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={loginMethod} onValueChange={(v) => setLoginMethod(v as 'email' | 'phone')}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="phone" className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  رقم الهاتف
-                </TabsTrigger>
-                <TabsTrigger value="email" className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  البريد الإلكتروني
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Phone Login */}
-              <TabsContent value="phone">
-                {!showOTP ? (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">رقم الهاتف (اليمن)</Label>
-                      <div className="flex gap-2">
-                        <div className="flex items-center px-3 bg-secondary rounded-md border border-input">
-                          <span className="text-sm text-muted-foreground" dir="ltr">+967</span>
-                        </div>
-                        <Input
-                          id="phone"
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
-                          placeholder="7XX XXX XXX"
-                          dir="ltr"
-                          className="flex-1 text-left"
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        أدخل رقم هاتفك بدون رمز الدولة
-                      </p>
-                    </div>
-                    <Button
-                      className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-                      onClick={handleSendOTP}
-                      disabled={isSendingOTP || phone.length < 9}
-                    >
-                      {isSendingOTP ? (
-                        <>
-                          <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                          جاري إرسال رمز التحقق...
-                        </>
-                      ) : (
-                        'إرسال رمز التحقق'
-                      )}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        تم إرسال رمز التحقق إلى
-                      </p>
-                      <p className="font-medium" dir="ltr">+967 {phone}</p>
-                    </div>
-                    
-                    <div className="flex justify-center">
-                      <InputOTP
-                        value={otp}
-                        onChange={setOtp}
-                        maxLength={6}
-                      >
-                        <InputOTPGroup className="gap-2" dir="ltr">
-                          <InputOTPSlot index={0} />
-                          <InputOTPSlot index={1} />
-                          <InputOTPSlot index={2} />
-                          <InputOTPSlot index={3} />
-                          <InputOTPSlot index={4} />
-                          <InputOTPSlot index={5} />
-                        </InputOTPGroup>
-                      </InputOTP>
-                    </div>
-
-                    <Button
-                      className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-                      onClick={handleVerifyOTP}
-                      disabled={isVerifyingOTP || otp.length !== 6}
-                    >
-                      {isVerifyingOTP ? (
-                        <>
-                          <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                          جاري التحقق...
-                        </>
-                      ) : (
-                        'تأكيد'
-                      )}
-                    </Button>
-
-                    <div className="text-center">
-                      <button
-                        type="button"
-                        className="text-sm text-accent hover:underline"
-                        onClick={() => {
-                          setShowOTP(false)
-                          setOtp('')
-                        }}
-                      >
-                        تغيير رقم الهاتف
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* Email Login */}
-              <TabsContent value="email">
-                <form onSubmit={handleEmailLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">البريد الإلكتروني</Label>
+            {/* Step 1: Email Input */}
+            {step === 'email' && (
+              <form onSubmit={handleSendOTP} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <div className="relative">
+                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
@@ -257,43 +183,172 @@ export default function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="example@email.com"
                       dir="ltr"
-                      className="text-left"
+                      className="text-left pr-10"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">كلمة المرور</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                  <p className="text-xs text-muted-foreground">
+                    سنرسل لك رمز تحقق على هذا البريد
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                  disabled={isLoading || !email}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                      جاري الإرسال...
+                    </>
+                  ) : (
+                    'إرسال رمز التحقق'
+                  )}
+                </Button>
+              </form>
+            )}
+
+            {/* Step 2: OTP Verification */}
+            {step === 'otp' && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    تم إرسال رمز التحقق إلى
+                  </p>
+                  <p className="font-medium" dir="ltr">{email}</p>
+                </div>
+                
+                <div className="flex justify-center">
+                  <InputOTP
+                    value={otp}
+                    onChange={setOtp}
+                    maxLength={6}
+                  >
+                    <InputOTPGroup className="gap-2" dir="ltr">
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+
+                <Button
+                  className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                  onClick={handleVerifyOTP}
+                  disabled={isLoading || otp.length !== 6}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                      جاري التحقق...
+                    </>
+                  ) : (
+                    'تأكيد'
+                  )}
+                </Button>
+
+                <div className="flex items-center justify-between text-sm">
+                  <button
+                    type="button"
+                    className="text-accent hover:underline"
+                    onClick={() => {
+                      setStep('email')
+                      setOtp('')
+                    }}
+                  >
+                    تغيير البريد الإلكتروني
+                  </button>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={handleSendOTP}
                     disabled={isLoading}
+                  >
+                    إعادة إرسال الرمز
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Profile Completion */}
+            {step === 'profile' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">الاسم</Label>
+                  <div className="relative">
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="name"
+                      value={profileData.name}
+                      onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                      placeholder="الاسم الكامل"
+                      className="pr-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">رقم التواصل (اختياري)</Label>
+                  <div className="relative">
+                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={profileData.phone}
+                      onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                      placeholder="+967 XXX XXX XXX"
+                      dir="ltr"
+                      className="text-left pr-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address">العنوان (اختياري)</Label>
+                  <div className="relative">
+                    <MapPin className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="address"
+                      value={profileData.address}
+                      onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                      placeholder="المدينة، الحي، الشارع"
+                      className="pr-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                    onClick={handleCompleteProfile}
+                    disabled={isLoading || !profileData.name}
                   >
                     {isLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                        جاري تسجيل الدخول...
+                        جاري الحفظ...
                       </>
                     ) : (
-                      'تسجيل الدخول'
+                      'حفظ والمتابعة'
                     )}
                   </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+                  <Button
+                    variant="outline"
+                    onClick={handleSkipProfile}
+                    disabled={isLoading}
+                  >
+                    <SkipForward className="h-4 w-4 ml-1" />
+                    تخطي
+                  </Button>
+                </div>
 
-            {/* Admin Hint */}
-            <div className="mt-6 pt-4 border-t border-border">
-              <p className="text-xs text-center text-muted-foreground">
-                للدخول كمدير: admin@jomlah.com
-              </p>
-            </div>
+                <p className="text-xs text-center text-muted-foreground mt-4">
+                  يمكنك إضافة بياناتك لاحقاً من صفحة حسابك
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
